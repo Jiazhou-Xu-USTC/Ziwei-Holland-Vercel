@@ -470,17 +470,14 @@ async function callDeepSeekForZiweiAnalysis(ziweiData, userData) {
 
 async function callDeepSeekForCombinedAnalysis(ziweiData, hollandResult, userData) {
     if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'your-deepseek-api-key-here') {
-        return generateDefaultCombinedAnalysis(ziweiData, hollandResult, userData);
+        return { type: 'pending', content: '分析正在进行中，请稍后查看结果。' };
     }
 
     const prompt = buildCombinedAnalysisPrompt(ziweiData, hollandResult, userData);
-    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒超时
+
     try {
-        console.log('🤖 调用DeepSeek API进行综合分析...');
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
-        
         const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
             method: 'POST',
             headers: {
@@ -490,21 +487,15 @@ async function callDeepSeekForCombinedAnalysis(ziweiData, hollandResult, userDat
             body: JSON.stringify({
                 model: 'deepseek-chat',
                 messages: [
-                    {
-                        role: 'system',
-                        content: '你是一位资深的国学易经术数领域专家，请综合紫微斗数和霍兰德职业兴趣测试结果，为用户提供全面的专业选择建议。'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
+                    { role: 'system', content: '你是一位资深的国学易经术数领域专家...' },
+                    { role: 'user', content: prompt }
                 ],
                 temperature: 0.4,
                 max_tokens: 1500
             }),
             signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
 
         if (response.ok) {
@@ -513,15 +504,14 @@ async function callDeepSeekForCombinedAnalysis(ziweiData, hollandResult, userDat
                 type: 'deepseek_api',
                 content: data.choices[0].message.content,
                 model: data.model,
-                timestamp: new Date().toISOString(),
-                usage: data.usage
+                timestamp: new Date().toISOString()
             };
         }
     } catch (error) {
-        console.error('❌ DeepSeek综合分析失败:', error);
+        console.warn('⏳ DeepSeek响应超时或失败，返回pending状态');
     }
-    
-    return generateDefaultCombinedAnalysis(ziweiData, hollandResult, userData);
+
+    return { type: 'pending', content: '分析正在进行中，请稍后查看结果。' };
 }
 
 // === 提示词构建函数 ===
