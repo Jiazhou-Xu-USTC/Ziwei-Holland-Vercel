@@ -604,6 +604,6 @@ ${hollandResult.developmentSuggestion}
 
 ## 工作环境
 适合的工作环境：${hollandResult.workEnvironment}
-
+    `
     };
 } 
