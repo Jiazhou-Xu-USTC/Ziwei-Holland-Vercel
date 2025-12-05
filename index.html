@@ -1620,48 +1620,49 @@
                     
 
                     // 构建请求数据
-                    // 先根据 hollandAnswers 计算各维度得分
+                    // ---- 1. 计算 Holland 分数 ----
                     const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
 
-                    hollandAnswers.forEach(answer => {
-                        // answer.type 是 R/I/A/S/E/C，answer.score 是 1–5
+                    window.hollandAnswers.forEach(answer => {
                         scores[answer.type] += answer.score;
                     });
 
-                    // 按得分从高到低排序
                     const sortedTypes = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-                    // 前三类型组成霍兰德代码，例如 "RIA"
-                    const hollandCode = sortedTypes.slice(0, 3).map(([type]) => type).join("");
-
-                    // 第一类型就是主类型
+                    const hollandCode = sortedTypes.slice(0, 3).map(([t]) => t).join("");
                     const primaryType = sortedTypes[0][0];
                     const primaryScore = sortedTypes[0][1];
 
-                    // 如果你想在前端调试，可以顺便存一下
-                    window.hollandResult = {
-                        hollandCode,
-                        primaryType,
-                        primaryScore,
-                        scores
-                    };
+                    // 保存（可选）
+                    window.hollandResult = { hollandCode, primaryType, primaryScore, scores };
 
-                    // 发送给后端的综合分析请求数据
+                    // ---- 2. 构建正确的 requestData ----
                     const requestData = {
-                        // 紫微分析结果（之前从 /api/ziwei-analysis 保存的）
-                        ziweiAnalysis: window.ziweiAnalysisResult,
+                        // 用户基本信息（紫微分析阶段保存的）
+                        name: window.userInfo.name,
+                        gender: window.userInfo.gender,
+                        birthYear: window.userInfo.birthYear,
+                        birthMonth: window.userInfo.birthMonth,
+                        birthDay: window.userInfo.birthDay,
+                        birthHour: window.userInfo.birthHour,
+                        birthMinute: window.userInfo.birthMinute,
+                        location: window.userInfo.location,
 
-                        // 霍兰德测试结果（前端已经算好）
-                        hollandResult: {
-                            hollandCode,
-                            primaryType,
-                            primaryScore,
-                            scores
-                        },
+                        // ★★ 后端真正需要的是这个：24 个答案数组 ★★
+                        hollandAnswers: window.hollandAnswers,
 
-                        // 用户基本信息（从紫微分析结果里拿）
-                        userInfo: window.ziweiAnalysisResult.userInfo
+                        // 紫微分析结果（可选）
+                        ziweiAnalysis: window.ziweiAnalysisResult
                     };
 
+                    // ---- 3. 发给 /api/combined-analysis ----
+                    const res = await fetch("/api/combined-analysis", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const data = await res.json();
+                    console.log("综合分析返回：", data);
 
                     // 调用Netlify Functions 综合分析API
                     console.log('发送综合分析请求:', requestData);
