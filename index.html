@@ -1781,27 +1781,31 @@
         }
 
         // 显示综合分析结果
-        function displayCombinedAnalysis(data) {
+        function displayCombinedAnalysis(result) {
             hideLoading();
-            
-            // 隐藏霍兰德测试区域
+
+            // 隐藏霍兰德测试
             const hollandElement = document.getElementById('hollandTest');
             if (hollandElement) {
                 hollandElement.style.display = 'none';
             }
-            
-            // 显示综合分析结果
+
             const resultSection = document.getElementById('result');
             const resultContent = document.getElementById('resultContent');
-            
-            const { userInfo, ziweiAnalysis, hollandResult, combinedAnalysis } = data;
-            
+
+            // 从 window 取出紫微 + 霍兰德，这才是你真实的数据
+            const userInfo = window.ziweiAnalysisResult.userInfo;
+            const ziweiAnalysis = window.ziweiAnalysisResult;
+            const hollandResult = window.hollandResult;
+
+            const combinedAnalysis = result.combinedAnalysis;
+
             let html = `
                 <div class="result-content">
                     <h4>🎉 综合分析完成</h4>
                     <p><strong>分析对象：</strong>${userInfo.name} (${userInfo.gender})</p>
                     <p><strong>分析方法：</strong>紫微斗数 + 霍兰德职业兴趣测试</p>
-                    <p><strong>分析时间：</strong>${new Date(data.timestamp).toLocaleString()}</p>
+                    <p><strong>分析时间：</strong>${new Date(result.timestamp).toLocaleString()}</p>
                 </div>
 
                 <div class="result-content">
@@ -1813,46 +1817,21 @@
 
                 <div class="result-content">
                     <h4>🎯 霍兰德测试结果</h4>
-                    <p><strong>主要类型：</strong>${hollandResult.primaryTypeName} (${hollandResult.primaryType}型)</p>
+                    <p><strong>主要类型：</strong>${hollandResult.primaryType}</p>
                     <p><strong>霍兰德代码：</strong>${hollandResult.hollandCode}</p>
                     <p><strong>得分：</strong>${hollandResult.primaryScore}分</p>
-                    
-                    <h5>🏆 前三类型得分：</h5>
-                    <div class="recommendations">
-                        ${hollandResult.topThreeTypes.map((type, index) => `
-                            <div class="recommendation-card">
-                                <h6>${index + 1}. ${type.name} (${type.type}型)</h6>
-                                <p><strong>得分：</strong>${type.score}分 (${type.percentage}%)</p>
-                            </div>
-                        `).join('')}
-                    </div>
                 </div>
 
                 <div class="result-content">
                     <h4>🤖 DeepSeek AI 综合分析</h4>
                     <div class="analysis-content">
-                        ${formatAnalysisContent(combinedAnalysis.content)}
+                        ${formatAnalysisContent(combinedAnalysis)}
                     </div>
-                    <p class="analysis-meta">
-                        <small>分析模型: ${combinedAnalysis.model} | 分析时间: ${new Date(combinedAnalysis.timestamp).toLocaleString()}</small>
-                    </p>
-                </div>
-
-                <div class="result-content" style="background: linear-gradient(135deg, #00b894 0%, #00a085 100%); color: white;">
-                    <h4>✨ 分析总结</h4>
-                    <p>本次分析结合了中华传统紫微斗数和现代心理学霍兰德理论，为您提供了全面的专业选择建议。</p>
-                    <p><strong>建议您：</strong></p>
-                    <ul style="margin: 10px 0; padding-left: 20px;">
-                        <li>重点关注两种分析方法都推荐的专业</li>
-                        <li>结合个人兴趣和实际情况做最终决定</li>
-                        <li>可以将此分析作为专业选择的重要参考</li>
-                        <li>建议与专业的升学指导老师进一步讨论</li>
-                    </ul>
                 </div>
             `;
-            
+
             resultContent.innerHTML = html;
-            resultSection.style.display = 'block';
+            resultSection.style.display = "block";
             resultSection.scrollIntoView({ behavior: 'smooth' });
         }
 
