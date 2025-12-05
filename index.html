@@ -1273,16 +1273,20 @@
             await safeAPICall(
                 async () => {
                     const requestData = {
-                        name: data.name || '用户',
-                        gender: data.gender,
-                        birthYear: new Date(data.birthDate).getFullYear(),
-                        birthMonth: new Date(data.birthDate).getMonth() + 1,
-                        birthDay: new Date(data.birthDate).getDate(),
-                        birthHour: timeMapping[data.birthTime],
-                        birthMinute: 0,
-                        location: data.birthPlace || '北京'
-                    };
+                        // 紫微分析结果
+                        ziweiAnalysis: window.ziweiAnalysisResult,
 
+                        // // 霍兰德测试结果（你要在前端自己计算，然后放进这里）
+                        // hollandResult: {
+                        //     hollandCode: hollandCode,
+                        //     primaryType: primary.type,
+                        //     primaryScore: primary.score,
+                        //     scores: scores
+                        // },
+
+                        // 用户基本信息
+                        userInfo: window.ziweiAnalysisResult.userInfo
+                    };
 
                     // 调用Netlify Functions API
                     const response = await fetch('/api/ziwei-analysis', {
@@ -1626,18 +1630,20 @@
 
                     // 构建请求数据
                     const requestData = {
-                        name: window.ziweiAnalysisResult.userInfo.name || '用户',
-                        gender: window.ziweiAnalysisResult.userInfo.gender,
-                        birthYear: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getFullYear(),
-                        birthMonth: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getMonth() + 1,
-                        birthDay: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getDate(),
-                        birthHour: window.ziweiAnalysisResult.userInfo.birthHour || 8,
-                        birthMinute: window.ziweiAnalysisResult.userInfo.birthMinute || 0,
-                        location: window.ziweiAnalysisResult.userInfo.location || '北京',
-                        hollandAnswers: answersForAPI,
-                        ziweiAnalysis: window.ziweiAnalysisResult
-                    };
+                        // 紫微分析结果
+                        ziweiAnalysis: window.ziweiAnalysisResult,
 
+                        // 霍兰德测试结果（你要在前端自己计算，然后放进这里）
+                        hollandResult: {
+                            hollandCode: hollandCode,
+                            primaryType: primary.type,
+                            primaryScore: primary.score,
+                            scores: scores
+                        },
+
+                        // 用户基本信息
+                        userInfo: window.ziweiAnalysisResult.userInfo
+                    };
 
                     // 调用Netlify Functions 综合分析API
                     console.log('发送综合分析请求:', requestData);
