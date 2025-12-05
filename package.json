@@ -7,7 +7,6 @@
     "dev": "vercel dev"
   },
   "dependencies": {
-    "iztro": "^2.4.7"
   },
   "author": "Jiazhou Xu",
   "license": "MIT"
