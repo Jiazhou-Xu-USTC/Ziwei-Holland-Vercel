@@ -1273,18 +1273,13 @@
             await safeAPICall(
                 async () => {
                     const requestData = {
-                        name: data.name || '用户',
+                        name: data.name || "用户",
                         gender: data.gender,
-                        birthYear: new Date(data.birthDate).getFullYear(),
-                        birthMonth: new Date(data.birthDate).getMonth() + 1,
-                        birthDay: new Date(data.birthDate).getDate(),
-                        birthHour: timeMapping[data.birthTime],
-                        birthMinute: 0,
-                        location: data.birthPlace || '北京'
+                        birthDate: data.birthDate,
+                        birthTime: data.birthTime,
+                        birthPlace: "北京"
                     };
 
-
-                    // 调用Netlify Functions API
                     const response = await fetch('/api/ziwei-analysis', {
                         method: 'POST',
                         headers: {
@@ -1300,10 +1295,10 @@
                     const resultData = await response.json();
 
                     if (resultData.success) {
-                        // 保存分析结果
+                        // 保存紫微分析结果
                         window.ziweiAnalysisResult = resultData.data;
-                        
-                        // 显示分析结果
+
+                        // 显示分析
                         displayZiweiAnalysis(resultData.data);
                         return resultData;
                     } else {
@@ -1625,17 +1620,46 @@
                     
 
                     // 构建请求数据
+                    // 先根据 hollandAnswers 计算各维度得分
+                    const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+
+                    hollandAnswers.forEach(answer => {
+                        // answer.type 是 R/I/A/S/E/C，answer.score 是 1–5
+                        scores[answer.type] += answer.score;
+                    });
+
+                    // 按得分从高到低排序
+                    const sortedTypes = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+                    // 前三类型组成霍兰德代码，例如 "RIA"
+                    const hollandCode = sortedTypes.slice(0, 3).map(([type]) => type).join("");
+
+                    // 第一类型就是主类型
+                    const primaryType = sortedTypes[0][0];
+                    const primaryScore = sortedTypes[0][1];
+
+                    // 如果你想在前端调试，可以顺便存一下
+                    window.hollandResult = {
+                        hollandCode,
+                        primaryType,
+                        primaryScore,
+                        scores
+                    };
+
+                    // 发送给后端的综合分析请求数据
                     const requestData = {
-                        name: window.ziweiAnalysisResult.userInfo.name || '用户',
-                        gender: window.ziweiAnalysisResult.userInfo.gender,
-                        birthYear: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getFullYear(),
-                        birthMonth: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getMonth() + 1,
-                        birthDay: new Date(window.ziweiAnalysisResult.userInfo.solarDate).getDate(),
-                        birthHour: window.ziweiAnalysisResult.userInfo.birthHour || 8,
-                        birthMinute: window.ziweiAnalysisResult.userInfo.birthMinute || 0,
-                        location: window.ziweiAnalysisResult.userInfo.location || '北京',
-                        hollandAnswers: answersForAPI,
-                        ziweiAnalysis: window.ziweiAnalysisResult
+                        // 紫微分析结果（之前从 /api/ziwei-analysis 保存的）
+                        ziweiAnalysis: window.ziweiAnalysisResult,
+
+                        // 霍兰德测试结果（前端已经算好）
+                        hollandResult: {
+                            hollandCode,
+                            primaryType,
+                            primaryScore,
+                            scores
+                        },
+
+                        // 用户基本信息（从紫微分析结果里拿）
+                        userInfo: window.ziweiAnalysisResult.userInfo
                     };
 
 
