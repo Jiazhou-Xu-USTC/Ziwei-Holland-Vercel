@@ -1636,23 +1636,26 @@
                     window.hollandResult = { hollandCode, primaryType, primaryScore, scores };
 
                     // ---- 2. 构建正确的 requestData ----
-                    const requestData = {
-                        // 用户基本信息（紫微分析阶段保存的）
-                        name: window.userInfo.name,
-                        gender: window.userInfo.gender,
-                        birthYear: window.userInfo.birthYear,
-                        birthMonth: window.userInfo.birthMonth,
-                        birthDay: window.userInfo.birthDay,
-                        birthHour: window.userInfo.birthHour,
-                        birthMinute: window.userInfo.birthMinute,
-                        location: window.userInfo.location,
+                    // 从紫微分析结构中取 userInfo
+                    const ui = window.ziweiAnalysisResult.userInfo;
 
-                        // ★★ 后端真正需要的是这个：24 个答案数组 ★★
+                    const requestData = {
+                        name: ui.name,
+                        gender: ui.gender,
+                        birthYear: ui.birthYear,
+                        birthMonth: ui.birthMonth,
+                        birthDay: ui.birthDay,
+                        birthHour: ui.birthHour,
+                        birthMinute: ui.birthMinute,
+                        location: ui.location || "北京",
+
+                        // ★★ 必须是 hollandAnswers（24 个得分对象）★★
                         hollandAnswers: window.hollandAnswers,
 
-                        // 紫微分析结果（可选）
+                        // 紫微分析结果（你需要）
                         ziweiAnalysis: window.ziweiAnalysisResult
                     };
+
 
                     // ---- 3. 发给 /api/combined-analysis ----
                     const res = await fetch("/api/combined-analysis", {
