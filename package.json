@@ -1,25 +1,14 @@
 {
-  "name": "ziwei-netlify-functions",
+  "name": "ziwei-vercel-api",
   "version": "1.0.0",
-  "description": "紫微斗数+霍兰德测试 Netlify Functions后端服务",
-  "main": "netlify/functions",
+  "description": "紫微斗数 + 霍兰德测试 API（Vercel 后端）",
+  "main": "api",
   "scripts": {
-    "dev": "netlify dev",
-    "build": "echo 'Building for production'",
-    "deploy": "netlify deploy --prod"
+    "dev": "vercel dev"
   },
   "dependencies": {
     "iztro": "^2.4.7"
   },
-  "devDependencies": {
-    "netlify-cli": "^17.0.0"
-  },
-  "keywords": [
-    "紫微斗数", 
-    "霍兰德测试",
-    "netlify-functions",
-    "serverless"
-  ],
-  "author": "ziwei-team",
+  "author": "Jiazhou Xu",
   "license": "MIT"
-} 
+}
