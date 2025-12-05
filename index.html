@@ -1600,106 +1600,105 @@
 
         // 提交霍兰德测试
         async function submitHollandTest() {
-            
+
             if (hollandAnswers.length !== 24) {
-                alert('测试数据不完整，请重新开始测试');
+                alert("测试数据不完整，请重新开始测试");
                 return;
             }
 
-            // 检查是否有必要的紫微分析数据
             if (!window.ziweiAnalysisResult || !window.ziweiAnalysisResult.userInfo) {
-                alert('缺少紫微斗数分析数据，请先完成个人信息填写');
+                alert("缺少紫微斗数分析数据，请先完成个人信息填写");
                 return;
             }
 
-            // 使用安全的API调用
             await safeAPICall(
                 async () => {
-                    // 转换答案格式为API需要的格式
-                    const answersForAPI = hollandAnswers.map(answer => answer.score);
-                    
 
-                    // 构建请求数据
-                    // ---- 1. 计算 Holland 分数 ----
+                    // -------------------------------
+                    // 1) 计算霍兰德得分
+                    // -------------------------------
                     const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
 
-                    window.hollandAnswers.forEach(answer => {
-                        scores[answer.type] += answer.score;
+                    hollandAnswers.forEach(a => {
+                        scores[a.type] += a.score;
                     });
 
                     const sortedTypes = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+
                     const hollandCode = sortedTypes.slice(0, 3).map(([t]) => t).join("");
                     const primaryType = sortedTypes[0][0];
                     const primaryScore = sortedTypes[0][1];
 
-                    // 保存（可选）
-                    window.hollandResult = { hollandCode, primaryType, primaryScore, scores };
+                    const hollandResult = {
+                        hollandCode,
+                        primaryType,
+                        primaryScore,
+                        scores
+                    };
 
-                    // ---- 2. 构建正确的 requestData ----
-                    // 从紫微分析结构中取 userInfo
+                    window.hollandResult = hollandResult;  // 可选，存起来
+
+
+                    // -------------------------------
+                    // 2) 准备 userInfo（来自紫微分析）
+                    // -------------------------------
                     const ui = window.ziweiAnalysisResult.userInfo;
 
-                    const requestData = {
+                    const userInfo = {
                         name: ui.name,
                         gender: ui.gender,
-                        birthYear: ui.birthYear,
-                        birthMonth: ui.birthMonth,
-                        birthDay: ui.birthDay,
-                        birthHour: ui.birthHour,
-                        birthMinute: ui.birthMinute,
-                        location: ui.location || "北京",
-
-                        // ★★ 必须是 hollandAnswers（24 个得分对象）★★
-                        hollandAnswers: window.hollandAnswers,
-
-                        // 紫微分析结果（你需要）
-                        ziweiAnalysis: window.ziweiAnalysisResult
+                        zodiac: ui.zodiac,
+                        soul: ui.soul,
+                        fiveElementsClass: ui.fiveElementsClass
                     };
 
 
-                    // ---- 3. 发给 /api/combined-analysis ----
-                    const res = await fetch("/api/combined-analysis", {
+                    // -------------------------------
+                    // 3) 最终 POST 数据（必须严格符合后端）
+                    // -------------------------------
+                    const requestData = {
+                        ziweiAnalysis: window.ziweiAnalysisResult,
+                        hollandResult: hollandResult,
+                        userInfo: userInfo
+                    };
+
+                    console.log("发送给后端的综合分析 requestData:", requestData);
+
+
+                    // -------------------------------
+                    // 4) 发给 /api/combined-analysis
+                    // -------------------------------
+                    const response = await fetch("/api/combined-analysis", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(requestData)
                     });
 
-                    const data = await res.json();
-                    console.log("综合分析返回：", data);
-
-                    // 调用Netlify Functions 综合分析API
-                    console.log('发送综合分析请求:', requestData);
-                    
-                    const response = await fetch('/api/combined-analysis', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(requestData)
-                    });
-
-                    console.log('综合分析响应状态:', response.status);
-
                     if (!response.ok) {
                         const errorText = await response.text();
-                        console.error('综合分析API错误:', errorText);
-                        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                        console.error("综合分析 API 错误:", errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
 
                     const result = await response.json();
-                    console.log('综合分析结果:', result);
+                    console.log("综合分析返回结果:", result);
 
+
+                    // -------------------------------
+                    // 5) 显示结果
+                    // -------------------------------
                     if (result.success) {
-                        displayCombinedAnalysis(result.data);
-                        return result;
+                        displayCombinedAnalysis(result);
                     } else {
-                        throw new Error(result.message || '综合分析失败');
+                        throw new Error(result.message || "综合分析失败");
                     }
+
                 },
-                '正在进行综合分析',
-                '正在结合紫微斗数与霍兰德测试进行深度分析...'
+                "正在进行综合分析",
+                "正在结合紫微斗数与霍兰德测试进行深度分析..."
             );
         }
+
 
         // 显示霍兰德分析结果（已废弃，现在使用综合分析）
         function displayHollandAnalysis(data) {
