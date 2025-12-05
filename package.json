@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vercel dev"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "author": "Jiazhou Xu",
   "license": "MIT"
 }
