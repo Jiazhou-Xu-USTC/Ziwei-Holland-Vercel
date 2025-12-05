@@ -1,25 +1,31 @@
-import { NextResponse } from "next/server";
+// Node.js Serverless Function 写法 (Vercel 原生支持)
+
+// iztro（可选，如果没装会 fallback）
+let iztroAstro = null;
+try {
+    const iztro = require("iztro");
+    iztroAstro = iztro.astro;
+} catch (e) {
+    console.log("⚠️ iztro 未安装，紫微排盘将使用 fallback");
+}
 
 // DeepSeek
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 
-// iztro
-import iztro from "iztro";
-
-// Helper: 时辰换算
+// 时辰换算
 function getTimeIndex(hour, minute = 0) {
     const totalMinutes = hour * 60 + minute;
     return Math.floor(((totalMinutes + 60) % 1440) / 120);
 }
 
-export default async function handler(req) {
+module.exports = async (req, res) => {
     if (req.method !== "POST") {
-        return NextResponse.json({ success: false, message: "Method not allowed" }, { status: 405 });
+        return res.status(405).json({ success: false, message: "Method not allowed" });
     }
 
     try {
-        const requestData = await req.json();
+        const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
         const {
             name,
             gender,
@@ -27,93 +33,95 @@ export default async function handler(req) {
             birthMonth,
             birthDay,
             birthHour,
-            birthMinute = 0,
-            location
-        } = requestData;
+            birthMinute = 0
+        } = body;
 
         if (!gender || !birthYear || !birthMonth || !birthDay || birthHour === undefined) {
-            return NextResponse.json(
-                { success: false, message: "缺少必需参数" },
-                { status: 400 }
-            );
+            return res.status(400).json({
+                success: false,
+                message: "缺少必需的出生信息"
+            });
         }
 
-        // ====== IZTRO 排盘 ======
-        const timeIndex = getTimeIndex(birthHour, birthMinute);
-        const genderParam = gender === "女" ? "female" : "male";
+        // ================ 紫微排盘部分 ================
+        let ziweiData = null;
 
-        const solarDateStr = `${birthYear}-${birthMonth}-${birthDay}`;
-        const astrolabe = iztro.astro.bySolar(solarDateStr, timeIndex, genderParam, true, "zh-CN");
+        if (iztroAstro) {
+            try {
+                const solar = `${birthYear}-${birthMonth}-${birthDay}`;
+                const timeIndex = getTimeIndex(birthHour, birthMinute);
 
-        if (!astrolabe) throw new Error("IZTRO排盘失败");
+                const chart = iztroAstro.bySolar(solar, timeIndex, gender, true, "zh-CN");
 
-        const userInfo = {
-            name: name || "用户",
-            gender,
-            solarDate: astrolabe.solarDate,
-            lunarDate: astrolabe.lunarDate,
-            chineseDate: astrolabe.chineseDate,
-            zodiac: astrolabe.zodiac,
-            fiveElementsClass: astrolabe.fiveElementsClass
-        };
+                ziweiData = {
+                    name,
+                    gender,
+                    solarDate: chart.solarDate,
+                    lunarDate: chart.lunarDate,
+                    chineseDate: chart.chineseDate,
+                    zodiac: chart.zodiac,
+                    fiveElementsClass: chart.fiveElementsClass,
+                    soul: chart.soul,
+                    body: chart.body
+                };
+            } catch (err) {
+                console.error("紫微排盘失败:", err);
+            }
+        }
 
-        // 宫位
-        const palaces = {};
-        const palaceNames = ["命宫", "兄弟", "夫妻", "子女", "财帛", "疾厄", "迁移", "奴仆", "官禄", "田宅", "福德", "父母"];
-
-        palaceNames.forEach((p) => {
-            const palace = astrolabe.palace(p);
-            palaces[p] = {
-                name: p,
-                position: palace?.earthlyBranch || "",
-                majorStars: (palace?.majorStars || []).map(s => s.name),
-                minorStars: (palace?.minorStars || []).map(s => s.name)
+        if (!ziweiData) {
+            ziweiData = {
+                name,
+                gender,
+                solarDate: `${birthYear}-${birthMonth}-${birthDay}`,
+                chineseDate: "未知",
+                zodiac: "未知",
+                fiveElementsClass: "未知"
             };
-        });
+        }
 
-        // ====== DeepSeek ======
-        const prompt = `
-作为紫微斗数分析师，请根据排盘信息分析性格、天赋和专业建议。
+        // ================ DeepSeek 分析 ================
+        let aiResult = "（未启用 DeepSeek API）";
 
-【基本信息】
-性别：${gender}
-生辰八字：${userInfo.chineseDate}
+        if (DEEPSEEK_API_KEY) {
+            const prompt = `
+根据以下紫微数据，为用户提供性格分析与专业建议：
 
-【宫位】
-${Object.keys(palaces).map(
-    k => `${k}：${palaces[k].position}\n主星：${palaces[k].majorStars.join("、")}`
-).join("\n")}
+姓名：${ziweiData.name}
+性别：${ziweiData.gender}
+生肖：${ziweiData.zodiac}
+五行局：${ziweiData.fiveElementsClass}
 `;
 
-        const deepseekResponse = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "deepseek-chat",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 800
-            })
-        });
+            const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${DEEPSEEK_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: "deepseek-chat",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 450
+                })
+            });
 
-        const deepseekData = await deepseekResponse.json();
+            const data = await response.json();
+            aiResult = data.choices?.[0]?.message?.content ?? "（AI 无响应）";
+        }
 
-        const deepseekAnalysis =
-            deepseekData.choices?.[0]?.message?.content || "DeepSeek返回为空";
-
-        // ====== 返回 ======
-        return NextResponse.json({
+        return res.status(200).json({
             success: true,
-            data: {
-                userInfo,
-                palaces,
-                deepseekAnalysis
-            }
+            ziwei: ziweiData,
+            analysis: aiResult
         });
 
     } catch (err) {
-        return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+        console.error("后端错误：", err);
+        return res.status(500).json({
+            success: false,
+            message: "服务器内部错误",
+            error: err.message
+        });
     }
-}
+};
