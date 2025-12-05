@@ -1268,8 +1268,7 @@
         async function analyzeZiwei(data) {
             const result = document.getElementById('result');
             result.classList.remove('show');
-            
-            // 使用安全的API调用
+
             await safeAPICall(
                 async () => {
                     const requestData = {
@@ -1282,28 +1281,28 @@
 
                     const response = await fetch('/api/ziwei-analysis', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(requestData)
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const resultData = await response.json();
+                    if (!resultData.success) throw new Error("紫微分析失败");
 
-                    if (resultData.success) {
-                        // 保存紫微分析结果
-                        window.ziweiAnalysisResult = resultData.data;
+                    // 保存完整结果（用于显示）
+                    window.ziweiAnalysisResult = resultData.data;
 
-                        // 显示分析
-                        displayZiweiAnalysis(resultData.data);
-                        return resultData;
-                    } else {
-                        throw new Error(resultData.message || '紫微斗数分析失败');
-                    }
+                    const ui = resultData.data.userInfo;
+
+                    // ⬇⬇⬇ 关键：生成后端需要的简化版（一定要加） ⬇⬇⬇
+                    window.ziweiForBackend = {
+                        soul: ui.soul,
+                        fiveElementsClass: ui.fiveElementsClass,
+                        zodiac: ui.zodiac
+                    };
+
+                    displayZiweiAnalysis(resultData.data);
                 },
                 '正在进行紫微斗数分析',
                 '紫微斗数排盘和AI分析中'
@@ -1585,89 +1584,55 @@
 
         // 完成霍兰德测试
         function finishHollandTest() {
-            
-            // 计算得分
+
             const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
-            
-            hollandAnswers.forEach(answer => {
-                scores[answer.type] += answer.score;
-            });
+            hollandAnswers.forEach(a => scores[a.type] += a.score);
 
+            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
 
-            // 开始综合分析
+            const hollandCode = sorted.slice(0, 3).map(([t]) => t).join("");
+            const primaryType = sorted[0][0];
+            const primaryScore = sorted[0][1];
+
+            // ⬇⬇⬇ 关键：生成后端需要的 hollandResult（必须加） ⬇⬇⬇
+            window.hollandForBackend = {
+                hollandCode,
+                primaryType,
+                primaryScore,
+                scores
+            };
+
             submitHollandTest();
         }
 
         // 提交霍兰德测试
         async function submitHollandTest() {
 
-            if (hollandAnswers.length !== 24) {
-                alert("测试数据不完整，请重新开始测试");
+            if (!window.ziweiForBackend) {
+                alert("错误：缺少紫微分析数据");
                 return;
             }
 
-            if (!window.ziweiAnalysisResult || !window.ziweiAnalysisResult.userInfo) {
-                alert("缺少紫微斗数分析数据，请先完成个人信息填写");
+            if (!window.hollandForBackend) {
+                alert("错误：霍兰德计算失败");
                 return;
             }
+
+            const ui = window.ziweiAnalysisResult.userInfo;
+
+            const requestData = {
+                ziweiAnalysis: window.ziweiForBackend,      // ✔ 简化版紫微
+                hollandResult: window.hollandForBackend,    // ✔ 霍兰德结果
+                userInfo: {                                 // ✔ 必须结构
+                    name: ui.name,
+                    gender: ui.gender
+                }
+            };
+
+            console.log("发送给后端的数据:", requestData);
 
             await safeAPICall(
                 async () => {
-
-                    // -------------------------------
-                    // 1) 计算霍兰德得分
-                    // -------------------------------
-                    const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
-
-                    hollandAnswers.forEach(a => {
-                        scores[a.type] += a.score;
-                    });
-
-                    const sortedTypes = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-
-                    const hollandCode = sortedTypes.slice(0, 3).map(([t]) => t).join("");
-                    const primaryType = sortedTypes[0][0];
-                    const primaryScore = sortedTypes[0][1];
-
-                    const hollandResult = {
-                        hollandCode,
-                        primaryType,
-                        primaryScore,
-                        scores
-                    };
-
-                    window.hollandResult = hollandResult;  // 可选，存起来
-
-
-                    // -------------------------------
-                    // 2) 准备 userInfo（来自紫微分析）
-                    // -------------------------------
-                    const ui = window.ziweiAnalysisResult.userInfo;
-
-                    const userInfo = {
-                        name: ui.name,
-                        gender: ui.gender,
-                        zodiac: ui.zodiac,
-                        soul: ui.soul,
-                        fiveElementsClass: ui.fiveElementsClass
-                    };
-
-
-                    // -------------------------------
-                    // 3) 最终 POST 数据（必须严格符合后端）
-                    // -------------------------------
-                    const requestData = {
-                        ziweiAnalysis: window.ziweiAnalysisResult,
-                        hollandResult: hollandResult,
-                        userInfo: userInfo
-                    };
-
-                    console.log("发送给后端的综合分析 requestData:", requestData);
-
-
-                    // -------------------------------
-                    // 4) 发给 /api/combined-analysis
-                    // -------------------------------
                     const response = await fetch("/api/combined-analysis", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -1675,30 +1640,18 @@
                     });
 
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error("综合分析 API 错误:", errorText);
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        const t = await response.text();
+                        console.error("后端错误内容：", t);
+                        throw new Error(`HTTP ${response.status}`);
                     }
 
                     const result = await response.json();
-                    console.log("综合分析返回结果:", result);
-
-
-                    // -------------------------------
-                    // 5) 显示结果
-                    // -------------------------------
-                    if (result.success) {
-                        displayCombinedAnalysis(result);
-                    } else {
-                        throw new Error(result.message || "综合分析失败");
-                    }
-
+                    displayCombinedAnalysis(result);
                 },
-                "正在进行综合分析",
-                "正在结合紫微斗数与霍兰德测试进行深度分析..."
+                "正在生成综合分析",
+                "紫微斗数 + 霍兰德结果整合中…"
             );
         }
-
 
         // 显示霍兰德分析结果（已废弃，现在使用综合分析）
         function displayHollandAnalysis(data) {
